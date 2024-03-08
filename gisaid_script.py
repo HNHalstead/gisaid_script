@@ -166,13 +166,13 @@ EXTENSION_HANDLERS = {
     ".xlsx": partial(pd.read_excel, engine="openpyxl"),
 }
 TODAY = datetime.now().strftime("%Y-%m-%d")
+# HNH_edit
 DEFAULT_AUTHORS = (
-            "Drew MacKellar, Philip Dykema, Denny Russell, "
-            "Holly Halstead, "
-            "Kathryn Sickles, Kristin Roche, Ardizon Valdez, "
-            "Claire Howell, Alex Lathum, JohnAric Peterson, "
-            "Avi Singh, Rebecca Cao"
-) 
+            "Drew MacKellar, Philip Dykema, "
+            "Holly Halstead, Kristen Waterman, "
+            "Abigail Hicks, JohnAric Peterson, "
+            "Andrew Delgado, Sarah Krantz "
+)
 AUTHORS_PATH = user_args.get('author_list')
 if AUTHORS_PATH:
     with open(AUTHORS_PATH, 'r') as f:
@@ -201,8 +201,8 @@ def load_tables(table_list: list, terra_table=False) -> pd.DataFrame:
     """Load input tables and consolidate into pandas DataFrames"""
 
     def load_single_table(filepath):
-        """Attempt to determine whether a given file is 
-        TSV, CSV, or Excel, and return the given table as 
+        """Attempt to determine whether a given file is
+        TSV, CSV, or Excel, and return the given table as
         a pandas DataFrame"""
         _, ext = os.path.splitext(filepath)
         df = EXTENSION_HANDLERS.get(ext, pd.read_excel)(filepath)
@@ -303,7 +303,7 @@ def auto_qc(merged_df: pd.DataFrame, logger: logging.Logger) -> list:
 
 
 def download_assemblies(merged_df: pd.DataFrame) -> Tuple[dict, dict]:
-    """For each sample represented in the Terra results, attempts to 
+    """For each sample represented in the Terra results, attempts to
     download the corresponding genome assembly"""
 
     pathlib.Path(ASSEMBLY_DIR).mkdir(exist_ok=True, parents=True)
@@ -324,8 +324,8 @@ def download_assemblies(merged_df: pd.DataFrame) -> Tuple[dict, dict]:
 
 
 def handle_counties(county: str):
-    """Ensure that any fields reported for the County in which sample 
-    was collected are validly named WA counties; else return just state 
+    """Ensure that any fields reported for the County in which sample
+    was collected are validly named WA counties; else return just state
     for localization field in metadata"""
     wa_counties_lower = (
         "adams; asotin; benton; chelan; clallam; clark; columbia; cowlitz; "
@@ -453,7 +453,7 @@ def get_pha4ge_metadata(df: pd.DataFrame, logger: logging.Logger) -> pd.DataFram
 
 
 def get_gisaid_metadata(pha4ge_metadata_df: pd.DataFrame, logger: logging.Logger) -> pd.DataFrame:
-    """Configure output metadata spreadsheet for upload to GISAID repository 
+    """Configure output metadata spreadsheet for upload to GISAID repository
     from input PHA4GE standard"""
     gisaid_fields = {
         ("submitter", "Submitter"): SUBMITTER,
@@ -487,7 +487,7 @@ def get_gisaid_metadata(pha4ge_metadata_df: pd.DataFrame, logger: logging.Logger
             pha4ge_metadata_df['sample_collector_contact_address']
         ),
         (
-            "covv_provider_sample_id", 
+            "covv_provider_sample_id",
             "Sample ID given by originating laboratory"
         ): None,
         (
@@ -509,19 +509,20 @@ def get_gisaid_metadata(pha4ge_metadata_df: pd.DataFrame, logger: logging.Logger
     # new_output_df.dropna(
     #     axis=0, subset=[("covv_virus_name", "Virus name")], inplace=True
     # )
-
+    # HNH Edit
+    gisaid_metadata_df["covv_consortium"] = ""
     return gisaid_metadata_df
 
 
 def format_collection_date(date_col: pd.Series) -> pd.Series:
-    """Reformat collection dates from MM/DD/YYYY in LIMS Dashboard output to 
+    """Reformat collection dates from MM/DD/YYYY in LIMS Dashboard output to
     YYYY-MM-DD format required by NCBI."""
     formatted_date_col = pd.to_datetime(date_col, format='%Y-%m-%d')
     return formatted_date_col
 
 
 def format_ictv_isolate(specimen_col: pd.Series) -> pd.Series:
-    """Reformat pha4ge specimen_collector_sample_id into 
+    """Reformat pha4ge specimen_collector_sample_id into
     ISTC format isolate name"""
     formatted_specimen_col = specimen_col.apply(
         lambda x: f"SARS-CoV-2/Human/USA/{x}/{TODAY[:4]}"
@@ -530,7 +531,7 @@ def format_ictv_isolate(specimen_col: pd.Series) -> pd.Series:
 
 
 def get_biosample_metadata(pha4ge_metadata_df: pd.DataFrame, logger: logging.Logger) -> pd.DataFrame:
-    """Configure output metadata spreadsheet for upload to NCBI BioSample 
+    """Configure output metadata spreadsheet for upload to NCBI BioSample
     database from input PHA4GE standard"""
     biosample_fields = {
         'sample_name': pha4ge_metadata_df['specimen_collector_sample_id'],
@@ -566,7 +567,7 @@ def get_biosample_metadata(pha4ge_metadata_df: pd.DataFrame, logger: logging.Log
 
 
 def get_genbank_metadata(pha4ge_metadata_df: pd.DataFrame, logger: logging.Logger) -> pd.DataFrame:
-    """Configure output metadata spreadsheet for upload to GenBank repository 
+    """Configure output metadata spreadsheet for upload to GenBank repository
     from input PHA4GE standard"""
     genbank_fields = {
         'sequence_ID': pha4ge_metadata_df['specimen_collector_sample_id'],
@@ -661,8 +662,8 @@ def handle_missing_data(df: pd.DataFrame, req_fields: list, logger: logging.Logg
 def handle_missing_genomes(
     df: pd.DataFrame, download_stderrs: dict, logger: logging.Logger
 ):
-    """Detects errors that occur when downloading genomes, 
-    and prints/logs messages warning the user they will be 
+    """Detects errors that occur when downloading genomes,
+    and prints/logs messages warning the user they will be
     omitted from the outputs."""
 
     download_failures = list()
@@ -781,7 +782,7 @@ def handle_vocs(vocs: list, vois: list, terra_df: pd.DataFrame, logger: logging.
 
 
 def main():
-    """Run the functions of this script in order, to process data in 
+    """Run the functions of this script in order, to process data in
     preparation for uploading to GISAID"""
     print()
     pathlib.Path(OUTDIR).mkdir(exist_ok=True)
@@ -806,7 +807,7 @@ def main():
     merged_df_path = os.path.join(OUTDIR, 'merged_df.tsv')
     merged_df.to_csv(merged_df_path, sep='\t')
     # sys.exit()
-    
+
     req_fields = ["collected_date"]
     samples_missing_data = handle_missing_data(merged_df, req_fields, logger)
     vocs, vois = get_vocs()
@@ -865,7 +866,7 @@ def main():
 
     pha4ge_outpath = os.path.join(OUTDIR, "pha4ge_metadata.csv")
     pha4ge_outpath, gisaid_outpath, biosample_outpath, genbank_outpath = (
-        os.path.join(OUTDIR, filename) for filename in 
+        os.path.join(OUTDIR, filename) for filename in
         ('pha4ge_metadata.csv', 'gisaid_metadata.csv', 'biosample_metadata.csv', 'genbank_metadata.csv')
     )
 
@@ -890,4 +891,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
