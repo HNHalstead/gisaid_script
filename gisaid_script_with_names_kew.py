@@ -228,9 +228,9 @@ def generate_exclude_list(exclude_file_path):
 
     return exclude_list
 
-
+#kw edit to pass list of samples to exlude from the merged_df
 def merge_tables(
-    terra_df: pd.DataFrame, dashboard_df: pd.DataFrame, logger: logging.Logger
+    terra_df: pd.DataFrame, dashboard_df: pd.DataFrame, logger: logging.Logger, exclude_list: list
 ) -> pd.DataFrame:
     """Merges the Dashboard and Terra tables, and reformats slightly"""
     pattern = ".*(WA[0-9]{7}).*"
@@ -258,6 +258,8 @@ def merge_tables(
     # "sample_id" field required by PHA4GE standard, later
     merged_df['sample_id'] = merged_df['seq_id'].fillna('').str.split('/', expand=True).iloc[:, 2]
 
+    #filter out rows with FastQ names in the exlude list
+    merged_df = merged_df[~merged_df['sample_name'].isin(exclude_list)]
 
     return merged_df
 
@@ -796,14 +798,13 @@ def main():
     preparation for uploading to GISAID"""
     print()
     pathlib.Path(OUTDIR).mkdir(exist_ok=True)
+    exclude_list = generate_exclude_list(exclude_file_path)
 
     logger = setup_logger(OUTDIR)
     dashboard_df = load_tables(DASHBOARD_TABLE)
     terra_df = load_tables(TERRA_TABLE, terra_table=True)
-    exclude_list = generate_exclude_list(exclude_file_path)
     global col_names
     col_names = get_column_map(WORKFLOW)
-  
 
     for df, path in zip((dashboard_df, terra_df), (DASHBOARD_TABLE, TERRA_TABLE)):
         if df.shape[0] < 1:
