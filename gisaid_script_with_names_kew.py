@@ -220,14 +220,14 @@ def load_tables(table_list: list, terra_table=False) -> pd.DataFrame:
     return df
 
 #kw edit to create a list of fastQs to exclude
-exclude_file_path = '/data/SC2/gisaid_script/DoNotUpload0403.csv'
+exclude_file_path = '/data/SC2/gisaid_script/DoNotUpload0508.csv'
 
 def generate_exclude_list(exclude_file_path):
     exclude_df = pd.read_csv(exclude_file_path)
     exclude_list = exclude_df['FastQ'].tolist()
 
     return exclude_list
-
+    print(exclude_list)
 #kw edit to pass list of samples to exlude from the merged_df
 def merge_tables(
     terra_df: pd.DataFrame, dashboard_df: pd.DataFrame, logger: logging.Logger, exclude_list: list
@@ -410,6 +410,42 @@ def handle_reasons(reason: str) -> str:
     )
     return pha4ge_reason
 
+#kw additions 20240701 to create a file to upload to the CoV Dashboard which fits the current template
+def get_results_upload(df: pd.DataFrame, logger:logging.Logger) -> pd.DataFrame:
+    """Creates a file with results from terra and metadata from dashborad to prepare a csv file to upload to the dashboard once NCBI accessions are received
+      NCBI accessions are added in a separate script"""
+    logger.info("starting to create results upload dataframe")
+    results_map = {
+        "Virus name": df["seq_id"],
+        "Accession ID": None,
+        "NCBI Accession": None,
+        "Collection date": df["collected_date"],
+        "Location": df["county"],
+        "Host": "Human",
+        "Passage": "Origin",
+        "Specimen": None,
+        "Additional host information": None,
+        "Sampling strategy": df["reason"].apply(handle_reasons),
+        "Sequencing technology": df["sample_name"].apply(get_platform),
+        "Assembly method": df["ivar_version_consensus"],
+        "Comment": None,
+        "Comment type": None,
+        "Lineage": df["nextclade_lineage"],
+        "Clade": df["nextclade_clade"],
+        "AA Subsititutions": df["nextclade_aa_subs"]
+        
+    }
+    
+    results_upload_df = pd.DataFrame(results_map)
+    #format location column
+    results_upload_df['Location'] = df['county'].apply(lambda x: f"North America / USA / Washington / {x}")
+
+   
+    #results_upload_df = pd.DataFrame(results_map)
+
+    logger.info("Results upload dataframe created")
+
+    return results_upload_df
 
 def get_pha4ge_metadata(df: pd.DataFrame, logger: logging.Logger) -> pd.DataFrame:
     """Generates the proper field names & formats for metadata
@@ -874,14 +910,14 @@ def main():
     # blank_df = pd.DataFrame({})
     # gisaid_metadata_df, genbank_metadata_df = blank_df.copy(), blank_df.copy()
     # end suspect block
-
+    results_upload_df = get_results_upload (merged_df, logger) #kw edit 
     biosample_metadata_df = get_biosample_metadata(pha4ge_metadata_df, logger)
     genbank_metadata_df = get_genbank_metadata(pha4ge_metadata_df, logger)
 
     pha4ge_outpath = os.path.join(OUTDIR, "pha4ge_metadata.csv")
-    pha4ge_outpath, gisaid_outpath, biosample_outpath, genbank_outpath = (
+    pha4ge_outpath, gisaid_outpath, biosample_outpath, genbank_outpath, results_outpath = (
         os.path.join(OUTDIR, filename) for filename in
-        ('pha4ge_metadata.csv', 'gisaid_metadata.csv', 'biosample_metadata.csv', 'genbank_metadata.csv')
+        ('pha4ge_metadata.csv', 'gisaid_metadata.csv', 'biosample_metadata.csv', 'genbank_metadata.csv', 'results_upload.csv')
     )
 
     # A brief block to provide any final formatting to metadata files
@@ -890,10 +926,10 @@ def main():
     # genbank_metadata_df.set_index('sequence_ID', drop=True, inplace=True)
 
     for metadata_df, new_index, metadata_table_name, outpath in zip(
-        (pha4ge_metadata_df, gisaid_metadata_df, biosample_metadata_df, genbank_metadata_df),
-        ('specimen_collector_sample_id', 'submitter', 'sample_name', 'sequence_ID'),
-        ("PHA4GE", "GISAID", "BioSample", "GenBank"),
-        (pha4ge_outpath, gisaid_outpath, biosample_outpath, genbank_outpath),
+        (pha4ge_metadata_df, gisaid_metadata_df, biosample_metadata_df, genbank_metadata_df, results_upload_df),
+        ('specimen_collector_sample_id', 'submitter', 'sample_name', 'sequence_ID', "Virus name"),
+        ("PHA4GE", "GISAID", "BioSample", "GenBank", "ResultsUpload"),
+        (pha4ge_outpath, gisaid_outpath, biosample_outpath, genbank_outpath, results_outpath),
     ):
         if metadata_table_name != "GISAID":
             metadata_df.set_index(new_index, drop=True, inplace=True)
