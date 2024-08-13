@@ -219,14 +219,15 @@ def load_tables(table_list: list, terra_table=False) -> pd.DataFrame:
     df = pd.concat(df_list)
     return df
 
-#kw edit to create a list of fastQs to exclude
-exclude_file_path = '/data/SC2/gisaid_script/DoNotUpload0508.csv'
+#kw edit to create a list of fastQs to exclude but this only works from my env currently. also likely not necessary when uploading to NCBI only. 
+exclude_file_path = '/data/SC2/gisaid_script/do_not_upload20240806.csv'
 
 def generate_exclude_list(exclude_file_path):
     exclude_df = pd.read_csv(exclude_file_path)
-    exclude_list = exclude_df['FastQ'].tolist()
+    exclude_list = exclude_df['SpecimenId'].tolist()
 
     return exclude_list
+
     print(exclude_list)
 #kw edit to pass list of samples to exlude from the merged_df
 def merge_tables(
@@ -236,11 +237,12 @@ def merge_tables(
     pattern = ".*(WA[0-9]{7}).*"
     terra_df["wa_no"] = terra_df["sample_name"].str.extract(pattern)
     missing_wa_nos = terra_df[terra_df["wa_no"].isna()]["sample_name"].tolist()
+
     if len(missing_wa_nos) > 0:
         missing_wa_nos_msg = "\n".join(
             [
                 ("No WA number could be determined for the following " "samples: "),
-                *missing_wa_nos,
+                *[str(sample) for sample in missing_wa_nos],
                 "and they will be omitted from the outputs",
             ]
         )
@@ -394,6 +396,7 @@ def get_collecting_lab_address(lab_name: str) -> str:
 
 def handle_reasons(reason: str) -> str:
     """Convert WAPHL categories of reasons for sequencing to those that fit PHA4GE standard"""
+
     reasons_map = {
         "phl diagnostic": "Baseline surveillance (random sampling)",
         "suspected vaccine breakthrough": "Vaccine escape surveillance",
@@ -854,6 +857,13 @@ def main():
 # DCM 20210805 note: the following block is just to get
 # a local copy of the `merged_df` table to look at
     merged_df = merge_tables(terra_df, dashboard_df, logger=logger, exclude_list=exclude_list)
+
+    # Fill NaN values in the "reason" column with "NO_REASON_FOUND"(KW edit)
+    merged_df["reason"].fillna("NO_REASON_FOUND", inplace=True)
+
+    # Remove any duplicate rows from merged_df (KW edit) 
+    merged_df.drop_duplicates(subset= ['sample_id'], keep = 'last', inplace=True)
+
     merged_df_path = os.path.join(OUTDIR, 'merged_df.tsv')
     merged_df.to_csv(merged_df_path, sep='\t')
     # sys.exit()
@@ -910,6 +920,9 @@ def main():
     # blank_df = pd.DataFrame({})
     # gisaid_metadata_df, genbank_metadata_df = blank_df.copy(), blank_df.copy()
     # end suspect block
+    print("Unique values in 'reason' column:")
+
+    print(merged_df["reason"].unique())
     results_upload_df = get_results_upload (merged_df, logger) #kw edit 
     biosample_metadata_df = get_biosample_metadata(pha4ge_metadata_df, logger)
     genbank_metadata_df = get_genbank_metadata(pha4ge_metadata_df, logger)
