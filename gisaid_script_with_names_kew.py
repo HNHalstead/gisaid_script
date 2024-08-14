@@ -581,7 +581,7 @@ def format_collection_date(date_col: pd.Series) -> pd.Series:
     return formatted_specimen_col
 
 #kw edit the 'isolate' column to match the pha4ge isolate column but leave only the year
-def get_biosample_metadata(pha4ge_metadata_df: pd.DataFrame, logger: logging.Logger) -> pd.DataFrame:
+def get_biosample_metadata(pha4ge_metadata_df: pd.DataFrame,merged_df:pd.DataFrame, logger: logging.Logger) -> pd.DataFrame:
     """Configure output metadata spreadsheet for upload to NCBI BioSample
     database from input PHA4GE standard"""
     biosample_fields = {
@@ -599,12 +599,22 @@ def get_biosample_metadata(pha4ge_metadata_df: pd.DataFrame, logger: logging.Log
         'host_disease': pha4ge_metadata_df['host_disease'],
         'isolate': pha4ge_metadata_df['isolate'].apply(lambda x: f"SARS-CoV-2/Homo sapiens/USA/{x.split('/')[-2]}/{x.split('/')[-1][:4]}"),   
         'isolation_source': 'Clinical/Nasal Swab',
-        # Going to have to leave out the GISAID accession field for now;
-        # can't figure out how to easily accommodate that within this script
-        # 'gisaid_accession': pha4ge_metadata_df['gisaid_accession'],
         'gisaid_virus_name': pha4ge_metadata_df['gisaid_virus_name'],
         'purpose_of_sequencing': pha4ge_metadata_df['purpose_of_sequencing'],
         'sequenced_by': pha4ge_metadata_df['sequence_submitted_by'],
+        #adding SRA attributes KW 20240813
+        'library_strategy' : 'WGS',
+        'library_source': 'VIRAL RNA',
+        'library_selection': 'PCR',
+        'library_layout': 'paired',
+        'platform': 'Illumina',
+        'instrument': 'NextSeq 2000',
+        'design_description': 'Whole genome sequencing (tiled-amplicon) of severe acute respiratory syndrome coronavirus 2',
+        'filetype': 'fastq',
+        'filename': merged_df['read1_dehosted'],
+        'filename2' : merged_df['read2_dehosted'],
+
+
     }
     
     biosample_metadata_df = pd.DataFrame(biosample_fields)
@@ -861,7 +871,7 @@ def main():
     # Fill NaN values in the "reason" column with "NO_REASON_FOUND"(KW edit)
     merged_df["reason"].fillna("NO_REASON_FOUND", inplace=True)
 
-    # Remove any duplicate rows from merged_df (KW edit) 
+    # Remove any duplicate rows from merged_df (KW edit) to
     merged_df.drop_duplicates(subset= ['sample_id'], keep = 'last', inplace=True)
 
     merged_df_path = os.path.join(OUTDIR, 'merged_df.tsv')
@@ -924,7 +934,7 @@ def main():
 
     print(merged_df["reason"].unique())
     results_upload_df = get_results_upload (merged_df, logger) #kw edit 
-    biosample_metadata_df = get_biosample_metadata(pha4ge_metadata_df, logger)
+    biosample_metadata_df = get_biosample_metadata(pha4ge_metadata_df, merged_df, logger)
     genbank_metadata_df = get_genbank_metadata(pha4ge_metadata_df, logger)
 
     pha4ge_outpath = os.path.join(OUTDIR, "pha4ge_metadata.csv")
