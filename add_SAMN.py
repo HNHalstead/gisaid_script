@@ -58,12 +58,21 @@ print(f"Output directory: {output_directory}")
 
 # Define a function to extract the common identifier
 def extract_identifier_from_virus_name(virus_name):
-    # Assuming the format hCoV-19/USA/WA-PHL-034983/2023
-    return virus_name.split('/')[2]
+    if isinstance(virus_name, str):  # Check if the value is a string
+        parts = virus_name.split('/')
+        if len(parts) >= 3:
+            return parts[2]
+    return None
+   
 
 def extract_identifier_from_isolate(isolate):
     # Assuming the format SARS-CoV-2/Human/USA/WA-PHL-034983/2024
-    return isolate.split('/')[3]
+    if isinstance(isolate, str):  # Check if the value is a string
+        parts = isolate.split('/')
+        if len(parts) >= 4:
+            return parts[3]
+    return None
+   
 
 # Process the data
 def main():
