@@ -418,6 +418,15 @@ def get_results_upload(df: pd.DataFrame, logger:logging.Logger) -> pd.DataFrame:
     """Creates a file with results from terra and metadata from dashborad to prepare a csv file to upload to the dashboard once NCBI accessions are received
       NCBI accessions are added in a separate script"""
     logger.info("starting to create results upload dataframe")
+
+     # Check for 'nextclade_lineage' or fallback to 'lineages'
+    if 'nextclade_lineage' in df.columns:
+        lineage_col = 'nextclade_lineage'
+    elif 'lineage' in df.columns:
+        lineage_col = 'lineage'
+    else:
+        logger.error("Neither 'nextclade_lineage' nor 'lineage' found in the DataFrame")
+        return None
     results_map = {
         "Virus name": df["seq_id"],
         "Accession ID": None,
@@ -433,7 +442,7 @@ def get_results_upload(df: pd.DataFrame, logger:logging.Logger) -> pd.DataFrame:
         "Assembly method": df["ivar_version_consensus"],
         "Comment": None,
         "Comment type": None,
-        "Lineage": df["nextclade_lineage"],
+        "Lineage": df[lineage_col],
         "Clade": df["nextclade_clade"],
         "AA Subsititutions": df["nextclade_aa_subs"]
         
