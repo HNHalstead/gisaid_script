@@ -24,8 +24,8 @@ parser.add_argument(
     "-n", "--ncbi",
     help="Name of the NCBI file (default is a file with 'NCBI' in the name in the input directory)",
     type=str,
-    dest="ncbi_file",
-    default=None
+    dest="ncbi_pattern",
+    default='*BioSample*.csv'
 )
 parser.add_argument(
     "-o", "--outdir",
@@ -37,23 +37,30 @@ parser.add_argument(
 # Parse the arguments
 args = parser.parse_args()
 
-#function to find file matching pattern if no file is provided 
-def find_file(directory, pattern):
+#function to find files matching pattern and merge multiple accession files 
+def find_files(directory, pattern):
     files = glob.glob(os.path.join(directory, pattern))
     if files:
-        return files[0]  # Return the first match
+        return files  # Return all matching files
     else:
-        raise FileNotFoundError(f"No file matching pattern '{pattern}' found in directory '{directory}'.")
+        raise FileNotFoundError(f"No files matching pattern '{pattern}' found in directory '{directory}'.")
     
 # Use the find_file function to locate specific files based on patterns
 input_directory = args.input_directory
-results_path = args.results_file if args.results_file else find_file(input_directory, '*results*.csv')
-ncbi_path = args.ncbi_file if args.ncbi_file else find_file(input_directory, '*BioSample*.csv')
+if args.results_file:
+    results_path = args.results_file
+else:
+    results_files = find_files(input_directory, '*results*.csv')
+    if len(results_files) == 1:
+        results_path = results_files[0]  # Take the first and only file
+    else:
+        raise FileNotFoundError(f"Expected exactly one results file, found: {len(results_files)}")
+ncbi_files= find_files(input_directory, args.ncbi_pattern)
 output_directory = args.output_directory
 
 # Print paths for debugging
 print(f"Results file: {results_path}")
-print(f"NCBI file: {ncbi_path}")
+print(f"NCBI files: {ncbi_files}")
 print(f"Output directory: {output_directory}")
 
 # Define a function to extract the common identifier
@@ -76,8 +83,10 @@ def extract_identifier_from_isolate(isolate):
 
 # Process the data
 def main():
-    # Read in the NCBI accessions csv and the results file
-    df_ncbi = pd.read_csv(ncbi_path)
+    # Read in the NCBI accessions csv, merge if needed
+    df_ncbi = pd.concat([pd.read_csv(file) for file in ncbi_files])
+
+    #Read in results file from gisaid script 
     df_results = pd.read_csv(results_path)
 
      # Extract the common identifier
